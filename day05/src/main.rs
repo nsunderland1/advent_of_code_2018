@@ -1,21 +1,20 @@
 use std::collections::HashSet;
-use std::collections::LinkedList;
 use std::error::Error;
 use std::fs;
 
 fn reduced_len(polymer_string: &str) -> usize {
-    let mut polymer: LinkedList<char> = LinkedList::new();
+    let mut polymer: Vec<char> = Vec::new();
 
     for chr in polymer_string.chars() {
-        match polymer.back() {
+        match polymer.last() {
             Some(prev)
                 if *prev != chr
                     && prev.to_ascii_lowercase()
                         == chr.to_ascii_lowercase() =>
             {
-                polymer.pop_back();
+                polymer.pop();
             }
-            _ => polymer.push_back(chr),
+            _ => polymer.push(chr),
         }
     }
     polymer.len()
