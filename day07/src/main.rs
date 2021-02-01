@@ -12,7 +12,7 @@ use std::fs::File;
 use std::io;
 use std::io::BufRead;
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Copy, Clone)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Copy, Clone, Default)]
 struct Step(char);
 
 struct Dependency {
@@ -49,6 +49,10 @@ impl Parse for Dependency {
     }
 }
 
+fn task_time(step: &Step) -> u32 {
+    (((step.0 as u8) - ('A' as u8) + 1) as u32) + 60
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let file = File::open("input")?;
     let lines = io::BufReader::new(file).lines().map(Result::unwrap);
@@ -61,40 +65,41 @@ fn main() -> Result<(), Box<dyn Error>> {
         .collect();
     let mut number_of_prereqs: HashMap<Step, u32> = HashMap::new();
     let mut dependers: HashMap<Step, Vec<Step>> = HashMap::new();
-    // for dependency in dependencies.iter() {
-    //     let &mut deps = dependers
-    //         .get_mut(&dependency.prereq)
-    //         .unwrap_or(&mut Vec::new());
-    //     deps.push(dependency.depender);
-    //     let &mut num_prereqs = number_of_prereqs
-    //         .get_mut(&dependency.depender)
-    //         .unwrap_or(&mut 0);
-    //     num_prereqs += 1;
-    // }
-    let mut queue = BinaryHeap::new();
-    {
-        let prereqs_iter = number_of_prereqs.iter();
-        for (step, num_prereqs) in prereqs_iter {
-            if *num_prereqs == 0 {
-                queue.push(Reverse(step));
-            }
+    for dependency in dependencies.iter() {
+        (*dependers.entry(dependency.prereq).or_insert(Vec::new()))
+            .push(dependency.depender);
+        *number_of_prereqs.entry(dependency.depender).or_insert(0) += 1;
+        if !number_of_prereqs.contains_key(&dependency.prereq) {
+            number_of_prereqs.insert(dependency.prereq, 0);
         }
     }
-    {
-        let mut step_order = Vec::new();
-        while let Some(Reverse(step)) = queue.pop() {
-            step_order.push(step);
-            for depender in dependers.get(step).unwrap().iter() {
-                let num_prereqs = number_of_prereqs
+
+    let mut queue = BinaryHeap::new();
+    let prereqs_iter = number_of_prereqs.iter();
+    for (step, num_prereqs) in prereqs_iter {
+        if *num_prereqs == 0 {
+            queue.push(Reverse(step.clone()));
+        }
+    }
+    let mut step_order = Vec::new();
+    let mut number_of_prereqs_left = number_of_prereqs.clone();
+    while let Some(Reverse(step)) = queue.pop() {
+        step_order.push(step);
+        if let Some(step_dependers) = dependers.get(&step) {
+            for depender in step_dependers.iter() {
+                let num_prereqs = number_of_prereqs_left
                     .entry(*depender)
                     .and_modify(|e| *e -= 1)
                     .or_default();
                 if *num_prereqs == 0 {
-                    queue.push(Reverse(depender));
+                    queue.push(Reverse(*depender));
                 }
             }
         }
-        println!("{:?}", step_order);
     }
+    number_of_prereqs_left = number_of_prereqs.clone();
+
+    let mut active_tasks: [Option<(Step, u32)>; 5];
+
     Ok(())
 }
